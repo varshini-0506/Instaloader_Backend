@@ -1,2 +1,33 @@
-# .gitignore
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+
+# Environment variables
 .env
+
+# Ignore sessions directory
+sessions/
+
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Logs
+*.log
+
+# Misc
+*.sqlite3
+
+# Ignore any additional files
+*.db
+*.DS_Store
+*.bak
+*.swp
