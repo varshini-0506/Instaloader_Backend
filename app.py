@@ -94,18 +94,23 @@ def get_profile():
         # Calculate average likes and engagement rate
         total_likes = 0
         total_posts = 0
+        max_posts = 10  # Limit to the most recent 10 posts
 
         for post in profile.get_posts():
-            total_likes += post.likes
-            total_posts += 1
-            # Optionally, add a delay here to prevent rapid requests
-            time.sleep(0.5)
+            if total_posts < max_posts:  # Check if we have processed less than max_posts
+                total_likes += post.likes
+                total_posts += 1
+        # Optionally, add a delay here to prevent rapid requests
+                time.sleep(0.5)
+            else:
+                break  # Exit the loop after processing the max_posts
 
         average_likes = total_likes / total_posts if total_posts > 0 else 0
         engagement_rate = (average_likes / profile.followers) * 100 if profile.followers > 0 else 0
 
         profile_data['average_likes'] = round(average_likes, 2)
         profile_data['engagement_rate'] = round(engagement_rate, 2)
+
 
         logger.debug(f"Fetched data for {username}: {profile_data}")
 
