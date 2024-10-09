@@ -20,20 +20,27 @@ logger = logging.getLogger(__name__)
 # Initialize Instagrapi client
 client = Client()
 
-# Retrieve credentials from environment variables
+# Retrieve credentials and session path from environment variables
 USERNAME = os.getenv('INSTAGRAM_USERNAME')
 PASSWORD = os.getenv('INSTAGRAM_PASSWORD')
+SESSION_PATH = os.getenv('INSTAGRAM_SESSION_PATH')  # Path to session file
 
-if not USERNAME or not PASSWORD:
-    logger.error("Instagram credentials are not set in environment variables.")
-    raise ValueError("Instagram credentials are not set in environment variables.")
+if not USERNAME or not SESSION_PATH:
+    logger.error("Instagram username or session path is not set in environment variables.")
+    raise ValueError("Instagram username or session path is not set in environment variables.")
 
-# Login to Instagram
+# Load session
 try:
-    client.login(USERNAME, PASSWORD)
-    logger.info("Logged in to Instagram successfully.")
+    client.load_settings(SESSION_PATH)
+    logger.info("Session loaded successfully.")
+    
+    # Check if the session is still valid
+    if not client.user_id:
+        client.login(USERNAME, PASSWORD)
+        client.dump_settings(SESSION_PATH)
+        logger.info("Logged in and session saved.")
 except Exception as e:
-    logger.error(f"An error occurred during login: {str(e)}")
+    logger.error(f"An error occurred during session loading/login: {str(e)}")
     raise
 
 @app.route('/profile', methods=['GET'])
@@ -81,7 +88,7 @@ def get_profile():
 
     except Exception as e:
         logger.error(f"An unexpected error occurred: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An unexpected error occurred.'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
