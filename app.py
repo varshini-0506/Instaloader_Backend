@@ -69,7 +69,7 @@ def get_profile():
         # Get recent media and calculate average likes
         total_likes = 0
         total_posts = 0
-        max_posts = 15  # Limit to the most recent 15 posts
+        max_posts = 10  # Limit to the most recent 15 posts
 
         media = client.user_medias(profile.pk, amount=max_posts)
         for post in media:
