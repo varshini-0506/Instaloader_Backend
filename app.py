@@ -1,5 +1,5 @@
 import os
-import base64
+import json
 from flask import Flask, request, jsonify
 from instagrapi import Client
 from flask_cors import CORS
@@ -20,24 +20,27 @@ logger = logging.getLogger(__name__)
 # Initialize Instagrapi client
 client = Client()
 
-# Retrieve credentials and session path from environment variables
+# Retrieve credentials and session JSON string from environment variables
 USERNAME = os.getenv('INSTAGRAM_USERNAME')
 PASSWORD = os.getenv('INSTAGRAM_PASSWORD')
-SESSION_PATH = os.getenv('INSTAGRAM_SESSION_PATH')  # Path to session file
+SESSION_JSON_STRING = os.getenv('INSTAGRAM_SESSION_JSON')  # Get session JSON string
 
-if not SESSION_PATH:
-    logger.error("Instagram session path is not set in environment variables.")
-    raise ValueError("Instagram session path is not set in environment variables.")
+if not SESSION_JSON_STRING:
+    logger.error("Instagram session JSON is not set in environment variables.")
+    raise ValueError("Instagram session JSON is not set in environment variables.")
 
-# Load session
+# Load session from the JSON string
 try:
-    client.load_settings(SESSION_PATH)
+    session_data = json.loads(SESSION_JSON_STRING)
+    client.set_settings(session_data)
     logger.info("Session loaded successfully.")
     
     # Optionally, verify if the session is still valid
     if not client.user_id:
         logger.error("Invalid session. Please run create_session.py to regenerate the session.")
-        # Optionally, you can stop the app or handle it accordingly
+except json.JSONDecodeError as e:
+    logger.error(f"Error decoding JSON: {str(e)}")
+    raise
 except Exception as e:
     logger.error(f"An error occurred during session loading: {str(e)}")
     raise
@@ -72,8 +75,7 @@ def get_profile():
         for post in media:
             total_likes += post.like_count
             total_posts += 1
-            # Optionally, add a delay here to prevent rapid requests
-            time.sleep(0.5)
+            time.sleep(0.5)  # Delay to prevent rapid requests
 
         average_likes = total_likes / total_posts if total_posts > 0 else 0
         engagement_rate = (average_likes / profile.follower_count) * 100 if profile.follower_count > 0 else 0
