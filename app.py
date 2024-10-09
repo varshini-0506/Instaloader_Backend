@@ -25,22 +25,21 @@ USERNAME = os.getenv('INSTAGRAM_USERNAME')
 PASSWORD = os.getenv('INSTAGRAM_PASSWORD')
 SESSION_PATH = os.getenv('INSTAGRAM_SESSION_PATH')  # Path to session file
 
-if not USERNAME or not SESSION_PATH:
-    logger.error("Instagram username or session path is not set in environment variables.")
-    raise ValueError("Instagram username or session path is not set in environment variables.")
+if not SESSION_PATH:
+    logger.error("Instagram session path is not set in environment variables.")
+    raise ValueError("Instagram session path is not set in environment variables.")
 
 # Load session
 try:
     client.load_settings(SESSION_PATH)
     logger.info("Session loaded successfully.")
     
-    # Check if the session is still valid
+    # Optionally, verify if the session is still valid
     if not client.user_id:
-        client.login(USERNAME, PASSWORD)
-        client.dump_settings(SESSION_PATH)
-        logger.info("Logged in and session saved.")
+        logger.error("Invalid session. Please run create_session.py to regenerate the session.")
+        # Optionally, you can stop the app or handle it accordingly
 except Exception as e:
-    logger.error(f"An error occurred during session loading/login: {str(e)}")
+    logger.error(f"An error occurred during session loading: {str(e)}")
     raise
 
 @app.route('/profile', methods=['GET'])
