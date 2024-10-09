@@ -1,7 +1,7 @@
 import os
 import base64
 from flask import Flask, request, jsonify
-import instaloader
+from instagrapi import Client
 from flask_cors import CORS
 import logging
 from dotenv import load_dotenv
@@ -17,43 +17,21 @@ CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Instaloader
-loader = instaloader.Instaloader()
+# Initialize Instagrapi client
+client = Client()
 
 # Retrieve credentials from environment variables
-USERNAME = os.getenv('INSTALOADER_USERNAME')
-PASSWORD = os.getenv('INSTALOADER_PASSWORD')
+USERNAME = os.getenv('INSTAGRAM_USERNAME')
+PASSWORD = os.getenv('INSTAGRAM_PASSWORD')
 
 if not USERNAME or not PASSWORD:
     logger.error("Instagram credentials are not set in environment variables.")
     raise ValueError("Instagram credentials are not set in environment variables.")
 
-# Define custom session directory and file
-script_dir = os.path.dirname(os.path.abspath(__file__))
-session_dir = os.path.join(script_dir, 'sessions')
-os.makedirs(session_dir, exist_ok=True)
-session_file = os.path.join(session_dir, f'session-{USERNAME}')
-
-# Load session from environment variable if available
-
+# Login to Instagram
 try:
-    loader.login(USERNAME, PASSWORD)
+    client.login(USERNAME, PASSWORD)
     logger.info("Logged in to Instagram successfully.")
-
-        # Save the session file locally
-    loader.save_session_to_file(session_file)
-    logger.info(f"Session saved successfully to {session_file}.")
-except instaloader.exceptions.BadCredentialsException:
-    logger.error("Invalid credentials, please check your username and password.")
-    raise
-except instaloader.exceptions.TwoFactorAuthRequiredException:
-    logger.error("Two-factor authentication is required.")
-        # Since Render is non-interactive, handle 2FA appropriately
-        # Recommended: Use an account without 2FA for automated logins
-    raise
-except instaloader.exceptions.ConnectionException as ce:
-    logger.error(f"Connection error during login: {str(ce)}")
-    raise
 except Exception as e:
     logger.error(f"An error occurred during login: {str(e)}")
     raise
@@ -67,62 +45,43 @@ def get_profile():
 
     try:
         # Load the profile
-        profile = instaloader.Profile.from_username(loader.context, username)
+        profile = client.user_info_by_username(username)
 
         # Prepare the profile data
         profile_data = {
             'username': profile.username,
             'full_name': profile.full_name,
             'bio': profile.biography,
-            'followers': profile.followers,
-            'following': profile.followees,
-            'posts': profile.mediacount,
+            'followers': profile.follower_count,
+            'following': profile.following_count,
+            'posts': profile.media_count,
         }
 
-        # Calculate average likes and engagement rate
+        # Get recent media and calculate average likes
         total_likes = 0
         total_posts = 0
         max_posts = 15  # Limit to the most recent 15 posts
 
-        for post in profile.get_posts():
-            if total_posts < max_posts:  # Check if we have processed less than max_posts
-                total_likes += post.likes
-                total_posts += 1
-        # Optionally, add a delay here to prevent rapid requests
-                time.sleep(0.5)
-            else:
-                break  # Exit the loop after processing the max_posts
+        media = client.user_medias(profile.pk, amount=max_posts)
+        for post in media:
+            total_likes += post.like_count
+            total_posts += 1
+            # Optionally, add a delay here to prevent rapid requests
+            time.sleep(0.5)
 
         average_likes = total_likes / total_posts if total_posts > 0 else 0
-        engagement_rate = (average_likes / profile.followers) * 100 if profile.followers > 0 else 0
+        engagement_rate = (average_likes / profile.follower_count) * 100 if profile.follower_count > 0 else 0
 
         profile_data['average_likes'] = round(average_likes, 2)
         profile_data['engagement_rate'] = round(engagement_rate, 2)
-
 
         logger.debug(f"Fetched data for {username}: {profile_data}")
 
         return jsonify(profile_data), 200
 
-    except instaloader.exceptions.ProfileNotExistsException:
-        logger.error(f"Profile '{username}' not found.")
-        return jsonify({'error': 'Profile not found'}), 404
-
-    except instaloader.exceptions.ConnectionException as ce:
-        logger.error(f"Connection error while fetching profile '{username}': {str(ce)}")
-        return jsonify({'error': 'Connection error. Please try again later.'}), 503
-
-    except instaloader.exceptions.BadCredentialsException:
-        logger.error("Invalid Instagram credentials.")
-        return jsonify({'error': 'Invalid Instagram credentials.'}), 401
-
-    except instaloader.exceptions.TwoFactorAuthRequiredException:
-        logger.error("Two-factor authentication is required.")
-        return jsonify({'error': 'Two-factor authentication is required.'}), 401
-
     except Exception as e:
         logger.error(f"An unexpected error occurred: {str(e)}")
-        return jsonify({'error': 'An unexpected error occurred.'}), 500
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
