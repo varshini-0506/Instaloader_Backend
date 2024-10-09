@@ -35,40 +35,28 @@ os.makedirs(session_dir, exist_ok=True)
 session_file = os.path.join(session_dir, f'session-{USERNAME}')
 
 # Load session from environment variable if available
-session_data = os.getenv('INSTALOADER_SESSION')
-if session_data:
-    logger.info("Loading session from environment variable.")
-    try:
-        session_bytes = base64.b64decode(session_data)
-        with open(session_file, 'wb') as f:
-            f.write(session_bytes)
-        loader.load_session_from_file(USERNAME, filename=session_file)
-        logger.info("Session loaded successfully from environment variable.")
-    except Exception as e:
-        logger.error(f"Failed to load session: {e}")
-        # Optionally, attempt to login again or handle the error appropriately
-else:
-    try:
-        loader.login(USERNAME, PASSWORD)
-        logger.info("Logged in to Instagram successfully.")
+
+try:
+    loader.login(USERNAME, PASSWORD)
+    logger.info("Logged in to Instagram successfully.")
 
         # Save the session file locally
-        loader.save_session_to_file(session_file)
-        logger.info(f"Session saved successfully to {session_file}.")
-    except instaloader.exceptions.BadCredentialsException:
-        logger.error("Invalid credentials, please check your username and password.")
-        raise
-    except instaloader.exceptions.TwoFactorAuthRequiredException:
-        logger.error("Two-factor authentication is required.")
+    loader.save_session_to_file(session_file)
+    logger.info(f"Session saved successfully to {session_file}.")
+except instaloader.exceptions.BadCredentialsException:
+    logger.error("Invalid credentials, please check your username and password.")
+    raise
+except instaloader.exceptions.TwoFactorAuthRequiredException:
+    logger.error("Two-factor authentication is required.")
         # Since Render is non-interactive, handle 2FA appropriately
         # Recommended: Use an account without 2FA for automated logins
-        raise
-    except instaloader.exceptions.ConnectionException as ce:
-        logger.error(f"Connection error during login: {str(ce)}")
-        raise
-    except Exception as e:
-        logger.error(f"An error occurred during login: {str(e)}")
-        raise
+    raise
+except instaloader.exceptions.ConnectionException as ce:
+    logger.error(f"Connection error during login: {str(ce)}")
+    raise
+except Exception as e:
+    logger.error(f"An error occurred during login: {str(e)}")
+    raise
 
 @app.route('/profile', methods=['GET'])
 def get_profile():
@@ -94,7 +82,7 @@ def get_profile():
         # Calculate average likes and engagement rate
         total_likes = 0
         total_posts = 0
-        max_posts = 10  # Limit to the most recent 10 posts
+        max_posts = 15  # Limit to the most recent 15 posts
 
         for post in profile.get_posts():
             if total_posts < max_posts:  # Check if we have processed less than max_posts
@@ -136,5 +124,5 @@ def get_profile():
         logger.error(f"An unexpected error occurred: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.'}), 500
 
-if __name__ == '_main_':
+if __name__ == '__main__':
     app.run(debug=True, port=5000)
