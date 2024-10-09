@@ -136,5 +136,5 @@ def get_profile():
         logger.error(f"An unexpected error occurred: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.'}), 500
 
-if __name__ == '__main__':
+if __name__ == '_main_':
     app.run(debug=True, port=5000)
