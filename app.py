@@ -66,10 +66,29 @@ def get_profile():
             'posts': profile.media_count,
         }
 
+        logger.debug(f"Fetched basic profile data for {username}: {profile_data}")
+
+        return jsonify(profile_data), 200
+
+    except Exception as e:
+        logger.error(f"An unexpected error occurred in get_profile: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred.'}), 500
+
+@app.route('/profile/stats', methods=['GET'])
+def get_profile_stats():
+    username = request.args.get('username')  # Get username from query parameters
+
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+
+    try:
+        # Load the profile
+        profile = client.user_info_by_username(username)
+
         # Get recent media and calculate average likes
         total_likes = 0
         total_posts = 0
-        max_posts = 10  # Limit to the most recent 15 posts
+        max_posts = 10  # Limit to the most recent 10 posts
 
         media = client.user_medias(profile.pk, amount=max_posts)
         for post in media:
@@ -80,15 +99,17 @@ def get_profile():
         average_likes = total_likes / total_posts if total_posts > 0 else 0
         engagement_rate = (average_likes / profile.follower_count) * 100 if profile.follower_count > 0 else 0
 
-        profile_data['average_likes'] = round(average_likes, 2)
-        profile_data['engagement_rate'] = round(engagement_rate, 2)
+        stats_data = {
+            'average_likes': round(average_likes, 2),
+            'engagement_rate': round(engagement_rate, 2),
+        }
 
-        logger.debug(f"Fetched data for {username}: {profile_data}")
+        logger.debug(f"Fetched stats for {username}: {stats_data}")
 
-        return jsonify(profile_data), 200
+        return jsonify(stats_data), 200
 
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {str(e)}")
+        logger.error(f"An unexpected error occurred in get_profile_stats: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.'}), 500
 
 if __name__ == '__main__':
