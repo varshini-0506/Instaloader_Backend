@@ -56,6 +56,9 @@ def get_profile():
         # Load the profile
         profile = client.user_info_by_username(username)
 
+        # Log the entire profile data for debugging
+        logger.debug(f"Profile data for {username}: {profile.dict()}")
+
         # Prepare the profile data
         profile_data = {
             'username': profile.username,
@@ -64,12 +67,57 @@ def get_profile():
             'followers': profile.follower_count,
             'following': profile.following_count,
             'posts': profile.media_count,
+            'is_business': profile.is_business,
         }
 
-        logger.debug(f"Fetched basic profile data for {username}: {profile_data}")
+        # Initialize fields
+        public_email = "Not Available"
+        public_phone_number = "Not Available"
+        business_category_name = "Not Available"
+
+        # Check if the account is a business account
+        if profile.is_business:
+            logger.debug(f"{username} is a business account.")
+
+            # Attempt to access 'category_name' directly
+            business_category_name = getattr(profile, 'category_name', "Not Available")
+
+            # If 'category_name' is not available, check 'category_info'
+            if business_category_name == "Not Available" and hasattr(profile, 'category_info') and profile.category_info:
+                # 'category_info' might be a list or a single object
+                if isinstance(profile.category_info, list) and len(profile.category_info) > 0:
+                    # If it's a list, extract the first category's name
+                    business_category_name = profile.category_info[0].get('name', "Not Available")
+                elif isinstance(profile.category_info, dict):
+                    # If it's a dict, get the 'name' key
+                    business_category_name = profile.category_info.get('name', "Not Available")
+
+            # Retrieve public email and phone number
+            public_email = profile.public_email or "Not Available"
+            public_phone_number = profile.public_phone_number or "Not Available"
+
+            logger.debug(f"Retrieved business details for {username}: Email={public_email}, Phone={public_phone_number}, Category={business_category_name}")
+
+        else:
+            logger.debug(f"{username} is not a business account.")
+
+        # Update profile data with business details
+        profile_data.update({
+            'public_email': public_email,
+            'public_phone_number': public_phone_number,
+            'business_category_name': business_category_name,
+        })
+
+        logger.debug(f"Final profile data for {username}: {profile_data}")
 
         return jsonify(profile_data), 200
 
+    except instagrapi.exceptions.UserNotFound:
+        logger.warning(f"User {username} not found.")
+        return jsonify({'error': 'User not found.'}), 404
+    except instagrapi.exceptions.ClientError as e:
+        logger.error(f"Client error: {str(e)}")
+        return jsonify({'error': 'A client error occurred.'}), 400
     except Exception as e:
         logger.error(f"An unexpected error occurred in get_profile: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.'}), 500
