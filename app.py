@@ -55,9 +55,6 @@ def get_profile():
     try:
         # Load the profile
         profile = client.user_info_by_username(username)
-        
-        # Access profile picture URL with error handling
-        profile_pic_url = getattr(profile, 'profile_pic_url', None) or getattr(profile, 'profile_pic_url_hd', None)
 
         # Log the entire profile data for debugging
         logger.debug(f"Profile data for {username}: {profile.dict()}")
@@ -71,7 +68,6 @@ def get_profile():
             'following': profile.following_count,
             'posts': profile.media_count,
             'is_business': profile.is_business,
-            'profile_url': profile_pic_url,
         }
 
         # Initialize fields
