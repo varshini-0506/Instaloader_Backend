@@ -68,6 +68,7 @@ def get_profile():
             'following': profile.following_count,
             'posts': profile.media_count,
             'is_business': profile.is_business,
+            'profile_pic_url': profile.profile_pic_url,
         }
 
         # Initialize fields
