@@ -48,7 +48,6 @@ except Exception as e:
 @app.route('/profile', methods=['GET'])
 def get_profile():
     username = request.args.get('username')  # Get username from query parameters
-    profile_pic_url = get_profile_picture(username)
 
     if not username:
         return jsonify({'error': 'Username is required'}), 400
@@ -69,7 +68,7 @@ def get_profile():
             'following': profile.following_count,
             'posts': profile.media_count,
             'is_business': profile.is_business,
-            'profile_url':profile_pic_url,
+            'profile_url':profile.profile_pic_url,
         }
 
         # Initialize fields
