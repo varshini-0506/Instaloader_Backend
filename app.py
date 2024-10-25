@@ -49,12 +49,18 @@ except Exception as e:
 def get_profile():
     username = request.args.get('username')  # Get username from query parameters
 
-    if not username:
-        return jsonify({'error': 'Username is required'}), 400
-
     try:
         # Load the profile
         profile = client.user_info_by_username(username)
+        # Attempt to get profile picture URL
+        profile_pic_url = profile.profile_pic_url_hd if hasattr(profile, 'profile_pic_url_hd') else profile.profile_pic_url
+        
+        # If both URLs are not available
+        if not profile_pic_url:
+            profile_pic_url = "Not Available"
+
+        if not username:
+            return jsonify({'error': 'Username is required'}), 400
 
         # Log the entire profile data for debugging
         logger.debug(f"Profile data for {username}: {profile.dict()}")
@@ -68,6 +74,7 @@ def get_profile():
             'following': profile.following_count,
             'posts': profile.media_count,
             'is_business': profile.is_business,
+            'profile_url': profile_pic_url,
         }
 
         # Initialize fields
