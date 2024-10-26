@@ -1,7 +1,7 @@
 import os
 import json
 from flask import Flask, request, jsonify
-from instagrapi import Client, exceptions
+from instagrapi import Client
 from flask_cors import CORS
 import logging
 from dotenv import load_dotenv
@@ -35,7 +35,7 @@ try:
     client.set_settings(session_data)
     logger.info("Session loaded successfully.")
     
-    # Verify if the session is valid by checking if user_id is set
+    # Optionally, verify if the session is still valid
     if not client.user_id:
         logger.error("Invalid session. Please run create_session.py to regenerate the session.")
 except json.JSONDecodeError as e:
@@ -49,11 +49,12 @@ except Exception as e:
 def get_profile():
     username = request.args.get('username')  # Get username from query parameters
 
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+
     try:
         # Load the profile
         profile = client.user_info_by_username(username)
-        if not username:
-            return jsonify({'error': 'Username is required'}), 400
 
         # Log the entire profile data for debugging
         logger.debug(f"Profile data for {username}: {profile.dict()}")
@@ -70,11 +71,37 @@ def get_profile():
         }
 
         # Initialize fields
-        public_email = profile.public_email or "Not Available"
-        public_phone_number = profile.public_phone_number or "Not Available"
-        business_category_name = getattr(profile, 'category_name', "Not Available")
+        public_email = "Not Available"
+        public_phone_number = "Not Available"
+        business_category_name = "Not Available"
 
-        # Update profile data with business details if it’s a business account
+        # Check if the account is a business account
+        if profile.is_business:
+            logger.debug(f"{username} is a business account.")
+
+            # Attempt to access 'category_name' directly
+            business_category_name = getattr(profile, 'category_name', "Not Available")
+
+            # If 'category_name' is not available, check 'category_info'
+            if business_category_name == "Not Available" and hasattr(profile, 'category_info') and profile.category_info:
+                # 'category_info' might be a list or a single object
+                if isinstance(profile.category_info, list) and len(profile.category_info) > 0:
+                    # If it's a list, extract the first category's name
+                    business_category_name = profile.category_info[0].get('name', "Not Available")
+                elif isinstance(profile.category_info, dict):
+                    # If it's a dict, get the 'name' key
+                    business_category_name = profile.category_info.get('name', "Not Available")
+
+            # Retrieve public email and phone number
+            public_email = profile.public_email or "Not Available"
+            public_phone_number = profile.public_phone_number or "Not Available"
+
+            logger.debug(f"Retrieved business details for {username}: Email={public_email}, Phone={public_phone_number}, Category={business_category_name}")
+
+        else:
+            logger.debug(f"{username} is not a business account.")
+
+        # Update profile data with business details
         profile_data.update({
             'public_email': public_email,
             'public_phone_number': public_phone_number,
@@ -85,10 +112,10 @@ def get_profile():
 
         return jsonify(profile_data), 200
 
-    except exceptions.UserNotFound:
+    except instagrapi.exceptions.UserNotFound:
         logger.warning(f"User {username} not found.")
         return jsonify({'error': 'User not found.'}), 404
-    except exceptions.ClientError as e:
+    except instagrapi.exceptions.ClientError as e:
         logger.error(f"Client error: {str(e)}")
         return jsonify({'error': 'A client error occurred.'}), 400
     except Exception as e:
