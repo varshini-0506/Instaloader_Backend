@@ -1,4 +1,8 @@
 import os
+<<<<<<< HEAD
+=======
+import json
+>>>>>>> 7f09d57ca3f54b64083f223910b23cd53e54f8ec
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from instagrapi import Client
@@ -38,6 +42,7 @@ with app.app_context():
 # Initialize Instagrapi client
 client = Client()
 
+<<<<<<< HEAD
 # Retrieve Instagram credentials
 USERNAME = os.getenv('INSTAGRAM_USERNAME')
 PASSWORD = os.getenv('INSTAGRAM_PASSWORD')
@@ -60,6 +65,7 @@ try:
         logger.info("Logged in and session saved.")
     else:
         logger.info("Session is already authenticated.")
+
 
 except Exception as e:
     logger.error(f"An error occurred: {str(e)}")
@@ -95,8 +101,10 @@ def get_profile():
             'followers': profile.follower_count,
             'following': profile.following_count,
             'posts': profile.media_count,
+            'is_business': profile.is_business,
         }
 
+<<<<<<< HEAD
         # Check if the account is a business account
         if profile.is_business:
             # Attempt to access 'category_name' directly
@@ -104,6 +112,22 @@ def get_profile():
 
             # If 'category_name' is not available, check 'category_info'
             if not business_category_name and hasattr(profile, 'category_info') and profile.category_info:
+=======
+        # Initialize fields
+        public_email = "Not Available"
+        public_phone_number = "Not Available"
+        business_category_name = "Not Available"
+
+        # Check if the account is a business account
+        if profile.is_business:
+            logger.debug(f"{username} is a business account.")
+
+            # Attempt to access 'category_name' directly
+            business_category_name = getattr(profile, 'category_name', "Not Available")
+
+            # If 'category_name' is not available, check 'category_info'
+            if business_category_name == "Not Available" and hasattr(profile, 'category_info') and profile.category_info:
+>>>>>>> 7f09d57ca3f54b64083f223910b23cd53e54f8ec
                 # 'category_info' might be a list or a single object
                 if isinstance(profile.category_info, list) and len(profile.category_info) > 0:
                     # If it's a list, extract the first category's name
@@ -111,6 +135,7 @@ def get_profile():
                 elif isinstance(profile.category_info, dict):
                     # If it's a dict, get the 'name' key
                     business_category_name = profile.category_info.get('name', "Not Available")
+<<<<<<< HEAD
                 else:
                     # Fallback if the structure is unexpected
                     business_category_name = "Not Available"
@@ -149,10 +174,15 @@ def get_profile():
             logger.info(f"Added new influencer data for {username}")
 
         db.session.commit()
+=======
 
         return jsonify(profile_data), 200
 
     except instagrapi.exceptions.UserNotFound:
+<<<<<<< HEAD
+=======
+        logger.warning(f"User {username} not found.")
+>>>>>>> 7f09d57ca3f54b64083f223910b23cd53e54f8ec
         return jsonify({'error': 'User not found.'}), 404
     except instagrapi.exceptions.ClientError as e:
         logger.error(f"Client error: {str(e)}")
@@ -202,6 +232,7 @@ def get_profile_stats():
         return jsonify({'error': 'A client error occurred.'}), 400
     except Exception as e:
         logger.error(f"An unexpected error occurred in get_profile_stats: {str(e)}")
+<<<<<<< HEAD
         return jsonify({'error': 'An unexpected error occurred.'}), 500
 
 @app.route('/influencer/<username>', methods=['GET'])
@@ -244,6 +275,8 @@ def get_followers():
         return jsonify({'error': 'A client error occurred.'}), 400
     except Exception as e:
         logger.error(f"An unexpected error occurred in get_followers: {str(e)}")
+=======
+>>>>>>> 7f09d57ca3f54b64083f223910b23cd53e54f8ec
         return jsonify({'error': 'An unexpected error occurred.'}), 500
 
 if __name__ == '__main__':
