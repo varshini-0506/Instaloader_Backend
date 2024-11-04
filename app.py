@@ -74,59 +74,36 @@ def get_profile():
         # Load the profile
         profile = client.user_info_by_username(username)
 
-        # Log the entire profile data for debugging
-        logger.debug(f"Profile data for {username}: {profile.dict()}")
-
         # Prepare the profile data
         profile_data = {
             'username': profile.username,
-            'full_name': profile.full_name,
-            'bio': profile.biography,
             'followers': profile.follower_count,
             'following': profile.following_count,
-            'posts': profile.media_count,
-            'is_business': profile.is_business,
+            'updated_at': datetime.utcnow()  # Current timestamp for update
         }
 
-        # Initialize fields
-        public_email = "Not Available"
-        public_phone_number = "Not Available"
-        business_category_name = "Not Available"
+        logger.debug(f"Retrieved profile data for {username}: {profile_data}")
 
-        # Check if the account is a business account
-        if profile.is_business:
-            logger.debug(f"{username} is a business account.")
-
-            # Attempt to access 'category_name' directly
-            business_category_name = getattr(profile, 'category_name', "Not Available")
-
-            # If 'category_name' is not available, check 'category_info'
-            if business_category_name == "Not Available" and hasattr(profile, 'category_info') and profile.category_info:
-                # 'category_info' might be a list or a single object
-                if isinstance(profile.category_info, list) and len(profile.category_info) > 0:
-                    # If it's a list, extract the first category's name
-                    business_category_name = profile.category_info[0].get('name', "Not Available")
-                elif isinstance(profile.category_info, dict):
-                    # If it's a dict, get the 'name' key
-                    business_category_name = profile.category_info.get('name', "Not Available")
-
-            # Retrieve public email and phone number
-            public_email = profile.public_email or "Not Available"
-            public_phone_number = profile.public_phone_number or "Not Available"
-
-            logger.debug(f"Retrieved business details for {username}: Email={public_email}, Phone={public_phone_number}, Category={business_category_name}")
-
+        # Insert or update the profile data in the database
+        influencer = Influencer.query.filter_by(username=username).first()
+        if influencer:
+            # Update existing record
+            influencer.followers = profile.follower_count
+            influencer.following = profile.following_count
+            influencer.updated_at = datetime.utcnow()  # Update timestamp
         else:
-            logger.debug(f"{username} is not a business account.")
+            # Create a new record
+            influencer = Influencer(
+                username=profile.username,
+                followers=profile.follower_count,
+                following=profile.following_count,
+                updated_at=datetime.utcnow()  # Set current timestamp
+            )
+            db.session.add(influencer)
 
-        # Update profile data with business details
-        profile_data.update({
-            'public_email': public_email,
-            'public_phone_number': public_phone_number,
-            'business_category_name': business_category_name,
-        })
-
-        logger.debug(f"Final profile data for {username}: {profile_data}")
+        # Commit the changes to the database
+        db.session.commit()
+        logger.info(f"Profile data for {username} has been stored/updated in the database.")
 
         return jsonify(profile_data), 200
 
