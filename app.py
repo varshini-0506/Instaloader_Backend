@@ -12,12 +12,12 @@ from models import db, Influencer
 # Load environment variables from .env file
 load_dotenv()
 
-app = Flask(_name_)
+app = Flask(__name__)
 CORS(app)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(_name_)
+logger = logging.getLogger(__name__)
 
 # Configure database
 NEON_DB_URL = os.getenv('NEON_DB_URL')
@@ -178,5 +178,5 @@ def get_profile_stats():
         logger.error(f"An unexpected error occurred in get_profile_stats: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.'}), 500
 
-if _name_ == '_main_':
+if __name__ == '__main__':
     app.run(debug=True, port=5000)
