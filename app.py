@@ -74,12 +74,16 @@ def get_profile():
         # Load the profile
         profile = client.user_info_by_username(username)
 
-        # Prepare the profile data
+        # Prepare the profile data (fetching all details)
         profile_data = {
             'username': profile.username,
+            'full_name': profile.full_name,
+            'bio': profile.biography,
             'followers': profile.follower_count,
             'following': profile.following_count,
-            'updated_at': datetime.utcnow()  # Current timestamp for update
+            'posts': profile.media_count,
+            'is_business': profile.is_business,
+            # You can include any other fields you want to fetch
         }
 
         logger.debug(f"Retrieved profile data for {username}: {profile_data}")
@@ -105,6 +109,7 @@ def get_profile():
         db.session.commit()
         logger.info(f"Profile data for {username} has been stored/updated in the database.")
 
+        # Return the full profile data (not just the database fields)
         return jsonify(profile_data), 200
 
     except instagrapi.exceptions.UserNotFound:
