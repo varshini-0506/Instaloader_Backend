@@ -1,17 +1,17 @@
 import os
+import json
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 from instagrapi import Client
-from dotenv import load_dotenv
+from flask_cors import CORS
 import logging
+from dotenv import load_dotenv
 import time
 from datetime import datetime
 from models import db, Influencer
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 
-# Initialize Flask app
 app = Flask(__name__)
 CORS(app)
 
@@ -38,40 +38,30 @@ with app.app_context():
 # Initialize Instagrapi client
 client = Client()
 
-# Retrieve Instagram credentials
+# Retrieve credentials and session JSON string from environment variables
 USERNAME = os.getenv('INSTAGRAM_USERNAME')
 PASSWORD = os.getenv('INSTAGRAM_PASSWORD')
-SESSION_PATH = os.getenv('INSTAGRAM_SESSION_PATH')  
+SESSION_JSON_STRING = os.getenv('INSTAGRAM_SESSION_JSON')  # Get session JSON string
 
-if not USERNAME or not SESSION_PATH:
-    logger.error("Instagram username or session path is not set in environment variables.")
-    raise ValueError("Instagram username or session path is not set in environment variables.")
+if not SESSION_JSON_STRING:
+    logger.error("Instagram session JSON is not set in environment variables.")
+    raise ValueError("Instagram session JSON is not set in environment variables.")
 
+# Load session from the JSON string
 try:
-    # Attempt to load existing session
-    client.load_settings(SESSION_PATH)
+    session_data = json.loads(SESSION_JSON_STRING)
+    client.set_settings(session_data)
     logger.info("Session loaded successfully.")
-
-    # Verify if the session is still valid
-    if not client.is_user_authenticated:
-        logger.info("Session invalid. Logging in...")
-        client.login(USERNAME, PASSWORD)
-        client.dump_settings(SESSION_PATH)
-        logger.info("Logged in and session saved.")
-    else:
-        logger.info("Session is already authenticated.")
-
+    
+    # Optionally, verify if the session is still valid
+    if not client.user_id:
+        logger.error("Invalid session. Please run create_session.py to regenerate the session.")
+except json.JSONDecodeError as e:
+    logger.error(f"Error decoding JSON: {str(e)}")
+    raise
 except Exception as e:
-    logger.error(f"An error occurred: {str(e)}")
-    try:
-        # If loading session fails, attempt to login
-        logger.info("Attempting to log in...")
-        client.login(USERNAME, PASSWORD)
-        client.dump_settings(SESSION_PATH)
-        logger.info("Logged in and session saved.")
-    except Exception as login_error:
-        logger.error(f"Failed to log in: {str(login_error)}")
-        raise
+    logger.error(f"An error occurred during session loading: {str(e)}")
+    raise
 
 @app.route('/profile', methods=['GET'])
 def get_profile():
@@ -84,10 +74,7 @@ def get_profile():
         # Load the profile
         profile = client.user_info_by_username(username)
 
-        # Log the entire profile data for debugging
-        logger.debug(f"Profile data for {username}: {profile.dict()}")
-
-        # Prepare the profile data
+        # Prepare the profile data (fetching all details)
         profile_data = {
             'username': profile.username,
             'full_name': profile.full_name,
@@ -95,64 +82,38 @@ def get_profile():
             'followers': profile.follower_count,
             'following': profile.following_count,
             'posts': profile.media_count,
+            'is_business': profile.is_business,
+            # You can include any other fields you want to fetch
         }
 
-        # Check if the account is a business account
-        if profile.is_business:
-            # Attempt to access 'category_name' directly
-            business_category_name = getattr(profile, 'category_name', None)
+        logger.debug(f"Retrieved profile data for {username}: {profile_data}")
 
-            # If 'category_name' is not available, check 'category_info'
-            if not business_category_name and hasattr(profile, 'category_info') and profile.category_info:
-                # 'category_info' might be a list or a single object
-                if isinstance(profile.category_info, list) and len(profile.category_info) > 0:
-                    # If it's a list, extract the first category's name
-                    business_category_name = profile.category_info[0].get('name', "Not Available")
-                elif isinstance(profile.category_info, dict):
-                    # If it's a dict, get the 'name' key
-                    business_category_name = profile.category_info.get('name', "Not Available")
-                else:
-                    # Fallback if the structure is unexpected
-                    business_category_name = "Not Available"
-
-            # Final fallback
-            business_category_name = business_category_name or "Not Available"
-
-            profile_data.update({
-                'public_email': profile.public_email or "Not Available",
-                'public_phone_number': profile.public_phone_number or "Not Available",
-                'business_category_name': business_category_name,
-            })
-        else:
-            profile_data.update({
-                'public_email': "Not a business account",
-                'public_phone_number': "Not a business account",
-                'business_category_name': "Not a business account",
-            })
-
-        logger.debug(f"Fetched profile data for {username}: {profile_data}")
-
-        # Store or update the influencer data in NeonDB
+        # Insert or update the profile data in the database
         influencer = Influencer.query.filter_by(username=username).first()
         if influencer:
+            # Update existing record
             influencer.followers = profile.follower_count
             influencer.following = profile.following_count
-            influencer.updated_at = datetime.utcnow()
-            logger.info(f"Updated influencer data for {username}")
+            influencer.updated_at = datetime.utcnow()  # Update timestamp
         else:
+            # Create a new record
             influencer = Influencer(
-                username=username,
+                username=profile.username,
                 followers=profile.follower_count,
-                following=profile.following_count
+                following=profile.following_count,
+                updated_at=datetime.utcnow()  # Set current timestamp
             )
             db.session.add(influencer)
-            logger.info(f"Added new influencer data for {username}")
 
+        # Commit the changes to the database
         db.session.commit()
+        logger.info(f"Profile data for {username} has been stored/updated in the database.")
 
+        # Return the full profile data (not just the database fields)
         return jsonify(profile_data), 200
 
     except instagrapi.exceptions.UserNotFound:
+        logger.warning(f"User {username} not found.")
         return jsonify({'error': 'User not found.'}), 404
     except instagrapi.exceptions.ClientError as e:
         logger.error(f"Client error: {str(e)}")
@@ -195,55 +156,8 @@ def get_profile_stats():
 
         return jsonify(stats_data), 200
 
-    except instagrapi.exceptions.UserNotFound:
-        return jsonify({'error': 'User not found.'}), 404
-    except instagrapi.exceptions.ClientError as e:
-        logger.error(f"Client error: {str(e)}")
-        return jsonify({'error': 'A client error occurred.'}), 400
     except Exception as e:
         logger.error(f"An unexpected error occurred in get_profile_stats: {str(e)}")
-        return jsonify({'error': 'An unexpected error occurred.'}), 500
-
-@app.route('/influencer/<username>', methods=['GET'])
-def get_stored_influencer(username):
-    influencer = Influencer.query.filter_by(username=username).first()
-    if influencer:
-        influencer_data = {
-            'username': influencer.username,
-            'followers': influencer.followers,
-            'following': influencer.following,
-            'updated_at': influencer.updated_at
-        }
-        return jsonify(influencer_data), 200
-    else:
-        return jsonify({'error': 'Influencer not found in the database.'}), 404
-    
-@app.route('/profile/followers', methods=['GET'])
-def get_followers():
-    username = request.args.get('username')  # Get username from query parameters
-
-    if not username:
-        return jsonify({'error': 'Username is required'}), 400
-
-    try:
-        # Load the profile
-        profile = client.user_info_by_username(username)
-
-        # Fetch followers' usernames
-        followers = client.user_followers(profile.pk)
-        followers_usernames = [f.username for f in followers.values()]
-
-        logger.debug(f"Fetched followers for {username}: {followers_usernames}")
-
-        return jsonify({'followers': followers_usernames}), 200
-
-    except instagrapi.exceptions.UserNotFound:
-        return jsonify({'error': 'User not found.'}), 404
-    except instagrapi.exceptions.ClientError as e:
-        logger.error(f"Client error: {str(e)}")
-        return jsonify({'error': 'A client error occurred.'}), 400
-    except Exception as e:
-        logger.error(f"An unexpected error occurred in get_followers: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.'}), 500
 
 if __name__ == '__main__':
