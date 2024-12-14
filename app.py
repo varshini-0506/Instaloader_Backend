@@ -11,6 +11,8 @@ from models import db, Influencer, generate_otp,send_otp_via_email
 import re
 import requests
 import base64
+import random
+import smtplib
 
 # Load environment variables from .env file
 load_dotenv()
