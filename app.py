@@ -7,7 +7,7 @@ import logging
 from dotenv import load_dotenv
 import time
 from datetime import datetime
-from models import db, Influencer
+from models import db, Influencer, generate_otp,send_otp_via_email
 import re
 import requests
 import base64
@@ -67,7 +67,7 @@ except Exception as e:
 
 @app.route('/profile', methods=['GET'])
 def get_profile():
-    username = request.args.get('username')  # Get username from query parameters
+    username = request.args.get('username')
 
     if not username:
         return jsonify({'error': 'Username is required'}), 400
@@ -76,53 +76,55 @@ def get_profile():
         # Load the profile
         profile = client.user_info_by_username(username)
 
-        # Prepare the profile data (fetching all details)
+        # Prepare the profile data
         profile_data = {
             'username': profile.username,
             'full_name': profile.full_name,
             'bio': profile.biography,
-            #'profile_url': str(profile.profile_pic_url),
             'followers': profile.follower_count,
             'following': profile.following_count,
             'posts': profile.media_count,
             'is_business': profile.is_business,
-            'email': profile.public_email,      
-            'phone_number': profile.contact_phone_number,  
-            'category': profile.category ,
+            'email': profile.public_email,
+            'phone_number': profile.contact_phone_number,
+            'category': profile.category,
         }
 
         # Fetch profile picture
         profile_pic_response = requests.get(profile.profile_pic_url)
         profile_pic_base64 = base64.b64encode(profile_pic_response.content).decode('utf-8')
         profile_data['profile_pic_base64'] = profile_pic_base64
-        #to display the img---> src={`data:image/jpeg;base64,${profiledata.profile_pic_base64}`}
 
+        # If email is available, generate and send OTP
+        if profile.public_email:
+            otp = generate_otp()
+            send_otp_via_email(profile.public_email, otp)
+            profile_data['otp_sent'] = True
+            profile_data['message'] = f"OTP sent to {profile.public_email}"
+        else:
+            profile_data['otp_sent'] = False
+            profile_data['message'] = "No public email available to send OTP."
 
-        print("Profile data:", profile_data)
-
+        # Log and store profile data
         logger.debug(f"Retrieved profile data for {username}: {profile_data}")
 
-        # Insert or update the profile data in the database
         influencer = Influencer.query.filter_by(username=username).first()
         if influencer:
             influencer.followers = profile.follower_count
             influencer.following = profile.following_count
-            influencer.updated_at = datetime.utcnow()  # Update timestamp
+            influencer.updated_at = datetime.utcnow()
         else:
-            # Create a new record
             influencer = Influencer(
                 username=profile.username,
                 followers=profile.follower_count,
                 following=profile.following_count,
-                updated_at=datetime.utcnow()  # Set current timestamp
+                updated_at=datetime.utcnow()
             )
             db.session.add(influencer)
 
-        # Commit the changes to the database
         db.session.commit()
         logger.info(f"Profile data for {username} has been stored/updated in the database.")
 
-        # Return the full profile data (not just the database fields)
         return jsonify(profile_data), 200
 
     except instagrapi.exceptions.UserNotFound:
@@ -134,7 +136,7 @@ def get_profile():
     except Exception as e:
         logger.error(f"An unexpected error occurred in get_profile: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.'}), 500
-
+        
 @app.route('/profile/stats', methods=['GET'])
 def get_profile_stats():
     username = request.args.get('username')  # Get username from query parameters
