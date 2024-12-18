@@ -97,15 +97,17 @@ def get_profile():
         profile_pic_base64 = base64.b64encode(profile_pic_response.content).decode('utf-8')
         profile_data['profile_pic_base64'] = profile_pic_base64
 
-        # If email is available, generate and send OTP
-        if profile.public_email:
-            otp = generate_otp()
-            send_otp_via_email(profile.public_email, otp)
-            profile_data['otp_sent'] = True
-            profile_data['message'] = f"OTP sent to {profile.public_email}"
-        else:
-            profile_data['otp_sent'] = False
-            profile_data['message'] = "No public email available to send OTP."
+        # Generate OTP
+        otp = generate_otp()
+
+        # Send OTP via DM
+        user_id = profile.pk  # Primary key of the user
+        dm_message = f"Hello {profile.full_name or profile.username}, your OTP is: {otp}"
+        client.direct_send(dm_message, [user_id])
+
+        profile_data['otp'] = otp
+        profile_data['dm_sent'] = True
+        profile_data['message'] = f"OTP sent via DM to {profile.username}"
 
         # Log and store profile data
         logger.debug(f"Retrieved profile data for {username}: {profile_data}")
@@ -138,7 +140,7 @@ def get_profile():
     except Exception as e:
         logger.error(f"An unexpected error occurred in get_profile: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.'}), 500
-        
+       
 @app.route('/profile/stats', methods=['GET'])
 def get_profile_stats():
     username = request.args.get('username')  # Get username from query parameters
