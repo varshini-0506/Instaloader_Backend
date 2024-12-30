@@ -13,6 +13,7 @@ import requests
 import base64
 import random
 import smtplib
+from pydantic import BaseModel
 
 # Load environment variables from .env file
 load_dotenv()
@@ -293,6 +294,29 @@ def get_post_details_by_url():
     except Exception as e:
         logger.error(f"An unexpected error occurred in get_post_details_by_url: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.', 'details': str(e)}), 500
+    
+# Define input model
+class PostURLs(BaseModel):
+    urls: list[str]
+
+@app.post("/fetch_post_stats/")
+async def fetch_post_stats(data: PostURLs):
+    try:
+        result = []
+        for url in data.urls:
+            shortcode = url.split("/")[-2]  # Extract shortcode from the URL
+            media = client.media_info_from_url(url)
+            stats = {
+                "url": url,
+                "likes": media.like_count,
+                "comments": media.comment_count,
+            }
+            result.append(stats)
+        return {"status": "success", "data": result}
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while getting no of likes and comments: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred.', 'details': str(e)}), 500
+        
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
