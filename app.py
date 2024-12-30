@@ -299,7 +299,7 @@ def get_post_details_by_url():
 class PostURLs(BaseModel):
     urls: list[str]
 
-@app.post("/fetch_post_stats/")
+@app.route("/fetch_post_stats/", methods=['GET'])
 async def fetch_post_stats(data: PostURLs):
     try:
         result = []
