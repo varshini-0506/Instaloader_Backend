@@ -297,11 +297,13 @@ def get_post_details_by_url():
     
 @app.route("/fetch_post_stats", methods=['POST'])
 def fetch_post_stats():
-    data = request.get_json()
+    data = request.get_json()  # Get JSON payload
     try:
         result = []
-        for url in data.urls:
-            #shortcode = url.split("/")[-2]  
+        if 'urls' not in data or not isinstance(data['urls'], list):
+            return jsonify({'error': 'Invalid request body. "urls" must be a list.'}), 400
+        
+        for url in data['urls']:  
             media = client.media_info_from_url(url)
             stats = {
                 "url": url,
@@ -309,11 +311,10 @@ def fetch_post_stats():
                 "comments": media.comment_count,
             }
             result.append(stats)
-        return {"status": "success", "data": result}
+        return jsonify({"status": "success", "data": result}), 200
     except Exception as e:
         logger.error(f"An unexpected error occurred while getting no of likes and comments: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.', 'details': str(e)}), 500
         
-
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
