@@ -295,12 +295,9 @@ def get_post_details_by_url():
         logger.error(f"An unexpected error occurred in get_post_details_by_url: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.', 'details': str(e)}), 500
     
-# Define input model
-class PostURLs(BaseModel):
-    urls: list[str]
-
 @app.route("/fetch_post_stats/", methods=['GET'])
-async def fetch_post_stats(data: PostURLs):
+async def fetch_post_stats():
+   data = request.get_json()
     try:
         result = []
         for url in data.urls:
