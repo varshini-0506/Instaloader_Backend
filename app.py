@@ -304,7 +304,8 @@ def fetch_post_stats():
             return jsonify({'error': 'Invalid request body. "urls" must be a list.'}), 400
         
         for url in data['urls']:  
-            media = client.media_info_from_url(url)
+            media_pk = client.media_pk_from_url(url)
+            media= client.media_info(media_pk)
             stats = {
                 "url": url,
                 "likes": media.like_count,
