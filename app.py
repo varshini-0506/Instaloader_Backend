@@ -297,7 +297,7 @@ def get_post_details_by_url():
     
 @app.route("/fetch_post_stats/", methods=['GET'])
 async def fetch_post_stats():
-   data = request.get_json()
+    data = request.get_json()
     try:
         result = []
         for url in data.urls:
