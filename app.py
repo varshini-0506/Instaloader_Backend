@@ -295,13 +295,13 @@ def get_post_details_by_url():
         logger.error(f"An unexpected error occurred in get_post_details_by_url: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.', 'details': str(e)}), 500
     
-@app.route("/fetch_post_stats/", methods=['GET'])
+@app.route("/fetch_post_stats/", methods=['POST'])
 async def fetch_post_stats():
     data = request.get_json()
     try:
         result = []
         for url in data.urls:
-            shortcode = url.split("/")[-2]  # Extract shortcode from the URL
+            #shortcode = url.split("/")[-2]  
             media = client.media_info_from_url(url)
             stats = {
                 "url": url,
