@@ -316,6 +316,41 @@ def fetch_post_stats():
     except Exception as e:
         logger.error(f"An unexpected error occurred while getting no of likes and comments: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.', 'details': str(e)}), 500
+
+@app.route('/postDetails_by_url', methods=['GET'])
+def get_postDetails_by_url():
+    post_url = request.args.get('post_url')  # Get the post URL from query parameters
+
+    if not post_url:
+        return jsonify({'error': 'Post URL is required'}), 400
+
+    try:
+        # Extract the shortcode from the URL
+        match = re.search(r'/p/([^/]+)/', post_url)
+        if not match:
+            return jsonify({'error': 'Invalid post URL format'}), 400
+
+        shortcode = match.group(1)
+        
+        #get  post_id from post url
+        post_pk= client.media_pk_from_url(post_url)
+        print("post pk:",post_pk)
+
+        
+        post = client.media_info(post_pk)
+        print("post details:",post)
+        
+        # Prepare the data for response
+        post_data = {
+            'username': post.user.username,
+            'full_name': post.user.full_name,
+        }
+
+        return jsonify(post_data), 200
+
+    except Exception as e:
+        logger.error(f"An unexpected error occurred in get_post_details_by_url: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred.', 'details': str(e)}), 500
         
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
