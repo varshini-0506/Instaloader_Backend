@@ -143,7 +143,7 @@ def get_profile():
         return jsonify({'error': 'An unexpected error occurred.'}), 500
 
 @app.route('/profileSearch', methods=['GET'])
-def get_profile():
+def get_profileSearch():
     username = request.args.get('username')
 
     if not username:
