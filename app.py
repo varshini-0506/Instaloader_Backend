@@ -141,6 +141,68 @@ def get_profile():
     except Exception as e:
         logger.error(f"An unexpected error occurred in get_profile: {str(e)}")
         return jsonify({'error': 'An unexpected error occurred.'}), 500
+
+@app.route('/profileSearch', methods=['GET'])
+def get_profile():
+    username = request.args.get('username')
+
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+
+    try:
+        # Load the profile
+        profile = client.user_info_by_username(username)
+
+        # Prepare the profile data
+        profile_data = {
+            'username': profile.username,
+            'full_name': profile.full_name,
+            'bio': profile.biography,
+            'followers': profile.follower_count,
+            'following': profile.following_count,
+            'posts': profile.media_count,
+            'is_business': profile.is_business,
+            'email': profile.public_email,
+            'phone_number': profile.contact_phone_number,
+            'category': profile.category,
+        }
+
+        # Fetch profile picture
+        profile_pic_response = requests.get(profile.profile_pic_url)
+        profile_pic_base64 = base64.b64encode(profile_pic_response.content).decode('utf-8')
+        profile_data['profile_pic_base64'] = profile_pic_base64
+
+        # Log and store profile data
+        logger.debug(f"Retrieved profile data for {username}: {profile_data}")
+
+        influencer = Influencer.query.filter_by(username=username).first()
+        if influencer:
+            influencer.followers = profile.follower_count
+            influencer.following = profile.following_count
+            influencer.updated_at = datetime.utcnow()
+        else:
+            influencer = Influencer(
+                username=profile.username,
+                followers=profile.follower_count,
+                following=profile.following_count,
+                updated_at=datetime.utcnow()
+            )
+            db.session.add(influencer)
+
+        db.session.commit()
+        logger.info(f"Profile data for {username} has been stored/updated in the database.")
+
+        return jsonify(profile_data), 200
+
+    except instagrapi.exceptions.UserNotFound:
+        logger.warning(f"User {username} not found.")
+        return jsonify({'error': 'User not found.'}), 404
+    except instagrapi.exceptions.ClientError as e:
+        logger.error(f"Client error: {str(e)}")
+        return jsonify({'error': 'A client error occurred.'}), 400
+    except Exception as e:
+        logger.error(f"An unexpected error occurred in get_profile: {str(e)}")
+        return jsonify({'error': 'An unexpected error occurred.'}), 500
        
 @app.route('/profile/stats', methods=['GET'])
 def get_profile_stats():
